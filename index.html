@@ -144,7 +144,7 @@
             const statusUI = document.getElementById('status-msg');
 
             // 게이지 계산
-            if (dist <= 4) boss.proximity = Math.min(boss.proximity + 1, 180); 
+            if (dist <= 6) boss.proximity = Math.min(boss.proximity + 1, 180); 
             else boss.proximity = Math.max(0, boss.proximity - 1);
 
             if(boss.cdSteam > 0) boss.cdSteam--;
@@ -159,7 +159,7 @@
                 bossSprite.material.map = texIdle;
                 statusUI.innerText = "IDLE (대기/이동)";
 
-                if (dist <= 4) {
+                if (dist <= 6) {
                     if (boss.cdNormal <= 0) { boss.state = 'NORMAL'; boss.timer = 0; }
                 } else {
                     const dir = new THREE.Vector3().subVectors(player.position, bossSprite.position).normalize();
@@ -182,7 +182,7 @@
                 } else if (boss.timer < 90) {
                     bossSprite.material.map = texAtk2;
                     // 타격 판정 (60프레임: 무기를 내리치는 순간)
-                    if(boss.timer === 60 && dist < 4.5) takeDamage(15);
+                    if(boss.timer === 60 && dist < 6.5) takeDamage(15);
                 } else {
                     boss.state = 'IDLE'; boss.cdNormal = 60; 
                 }
@@ -199,7 +199,7 @@
                     // 폭발 판정 및 화면 진동 (90프레임: 폭발이 터지는 순간)
                     if(boss.timer === 90) {
                         cameraShake = 20; // 20프레임 동안 화면 흔들림
-                        if(dist < 7) { // 폭발 범위
+                        if(dist < 9) { // 폭발 범위
                             takeDamage(20);
                             // 플레이어 넉백(밀려남)
                             const kb = new THREE.Vector3().subVectors(player.position, bossSprite.position).normalize();
@@ -239,7 +239,7 @@
                 p.mesh.position.addScaledVector(p.dir, 0.4);
                 
                 // 투사체에 맞았을 때
-                if (p.mesh.position.distanceTo(player.position) < 1.5) {
+                if (p.mesh.position.distanceTo(player.position) < 2.5) {
                     takeDamage(15);
                     p.life = 0; // 맞으면 투사체 소멸
                 }
