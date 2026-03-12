@@ -38,6 +38,7 @@
         const camOffset = new THREE.Vector3(15, 20, 15);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         const grid = new THREE.GridHelper(100, 50, 0xaaaaaa, 0xcccccc);
@@ -55,18 +56,22 @@
             
             loader.load(filename, (loaded) => {
                 tex.image = loaded.image;
+                tex.colorSpace = THREE.SRGBColorSpace; // 1. 원래의 쨍한 색감 복구
+                tex.minFilter = THREE.NearestFilter;   // 2. 축소 시 선명하게
+                tex.magFilter = THREE.NearestFilter;   // 3. 확대 시 경계선 뚜렷하게 (뭉개짐 방지)
+                // -----------------------
                 tex.needsUpdate = true;
             });
             return tex;
         }
 
-        const texIdle = loadSprite('이미지/일반.png', '#8d6e63', 'IDLE');
+        const texIdle = loadSprite('이미지/idle.png', '#8d6e63', 'IDLE');
         const texAtk1 = loadSprite('이미지/일반 공격.png', '#d84315', '일반 공격');
         const texAtk2 = loadSprite('이미지/일반 공격2.png', '#bf360c', '일반 공격2');
-        const texSteam1 = loadSprite('이미지/증기 폭발1.png', '#ffb74d', '증기 폭발1');
-        const texSteam2 = loadSprite('이미지/증기 폭발2.png', '#ff9800', '증기 폭발2');
-        const texSteam3 = loadSprite('이미지/증기 폭발3.png', '#e65100', '증기 폭발3');
-        const texSaw = loadSprite('이미지/톱날 공격.png', '#fbc02d', '톱날 공격');
+        const texSteam1 = loadSprite('이미지/증기_폭발1.png', '#ffb74d', '증기 폭발1');
+        const texSteam2 = loadSprite('이미지/증기_폭발2.png', '#ff9800', '증기 폭발2');
+        const texSteam3 = loadSprite('이미지/증기_폭발3.png', '#e65100', '증기 폭발3');
+        const texSaw = loadSprite('이미지/톱날_공격.png', '#fbc02d', '톱날 공격');
         const texProj = loadSprite('이미지/톱.png', '#111111', '투사체');
 
         // --- 3. 객체 생성 및 초기 위치 설정 ---
