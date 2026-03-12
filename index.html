@@ -2,26 +2,33 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Barrett Sprite Prototype - Updated</title>
+    <title>Barrett Sprite Prototype - Action FX</title>
     <style>
         body { margin: 0; overflow: hidden; background: #dddddd; font-family: 'Segoe UI', sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #333; pointer-events: none; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #333; pointer-events: none; z-index: 10; }
         .bar-container { width: 500px; height: 16px; background: rgba(0,0,0,0.2); margin: 8px auto; border: 2px solid #555; border-radius: 8px; position: relative; }
         #boss-hp { width: 100%; height: 100%; background: #ff4444; transition: width 0.1s; }
         #heat-gauge { width: 0%; height: 100%; background: #ffaa00; position: absolute; top: 0; left: 0; opacity: 0.6; }
         #status-msg { font-size: 22px; font-weight: bold; }
         .cooldowns { font-size: 14px; margin-top: 5px; font-weight: bold; }
+        #player-ui { font-size: 18px; font-weight: bold; color: white; text-shadow: 1px 1px 3px black; margin-top: 10px; }
+        /* 피격 시 붉게 번쩍이는 화면 연출 */
+        #damage-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; pointer-events: none; transition: opacity 0.1s ease-out; z-index: 5; }
     </style>
 </head>
 <body>
+    <div id="damage-flash"></div>
+
     <div id="ui">
         <div id="status-msg">전투 대기 중</div>
         <div class="bar-container">
-            <div id="heat-gauge"></div> <div id="boss-hp"></div>
+            <div id="heat-gauge"></div> 
+            <div id="boss-hp"></div>
         </div>
         <div class="cooldowns">
             증기 폭발 쿨타임: <span id="cd-steam">0</span>s | 톱날 사격 쿨타임: <span id="cd-saw">0</span>s
         </div>
+        <div id="player-ui">플레이어 HP: <span id="player-hp">100</span></div>
     </div>
 
     <script type="importmap">
@@ -36,9 +43,10 @@
         scene.background = new THREE.Color(0xdddddd);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camOffset = new THREE.Vector3(15, 20, 15);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.outputColorSpace = THREE.SRGBColorSpace; // 화질 개선: 물빠진 색감 복원
         document.body.appendChild(renderer.domElement);
 
         const grid = new THREE.GridHelper(100, 50, 0xaaaaaa, 0xcccccc);
@@ -56,15 +64,15 @@
             
             loader.load(filename, (loaded) => {
                 tex.image = loaded.image;
-                tex.colorSpace = THREE.SRGBColorSpace; // 1. 원래의 쨍한 색감 복구
-                tex.minFilter = THREE.NearestFilter;   // 2. 축소 시 선명하게
-                tex.magFilter = THREE.NearestFilter;   // 3. 확대 시 경계선 뚜렷하게 (뭉개짐 방지)
-                // -----------------------
+                tex.colorSpace = THREE.SRGBColorSpace; // 화질 개선
+                tex.minFilter = THREE.NearestFilter;   // 화질 개선: 도트/경계선 뚜렷하게
+                tex.magFilter = THREE.NearestFilter;   // 화질 개선
                 tex.needsUpdate = true;
             });
             return tex;
         }
 
+        // 영문 파일명 적용
         const texIdle = loadSprite('이미지/idle.png', '#8d6e63', 'IDLE');
         const texAtk1 = loadSprite('이미지/일반 공격.png', '#d84315', '일반 공격');
         const texAtk2 = loadSprite('이미지/일반 공격2.png', '#bf360c', '일반 공격2');
@@ -74,29 +82,26 @@
         const texSaw = loadSprite('이미지/톱날_공격.png', '#fbc02d', '톱날 공격');
         const texProj = loadSprite('이미지/톱.png', '#111111', '투사체');
 
-        // --- 3. 객체 생성 및 초기 위치 설정 ---
+        // --- 3. 객체 생성 ---
         const player = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.6, 4, 8), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
-        // [수정됨] 플레이어가 바렛(0, 0) 기준 화면 하단(z축 방향)에서 시작하도록 설정
         player.position.set(0, 0.7, 6); 
         scene.add(player);
 
         const bossMat = new THREE.SpriteMaterial({ map: texIdle });
         const bossSprite = new THREE.Sprite(bossMat);
         bossSprite.scale.set(6, 6, 2); 
-        bossSprite.position.set(0, 1.5, 0); // 바렛 초기 위치
+        bossSprite.position.set(0, 0, 0); 
         scene.add(bossSprite);
 
-        // --- 4. 상태 및 타이머 변수 ---
+        // --- 4. 상태 변수 ---
         const P_SPEED = 0.2;
         const B_SPEED = 0.04;
         
+        let playerHp = 100;
+        let cameraShake = 0; // 화면 진동 타이머
+        
         let boss = {
-            state: 'IDLE',
-            timer: 0,
-            proximity: 0, 
-            cdSteam: 0,   
-            cdSaw: 0,     
-            cdNormal: 0   
+            state: 'IDLE', timer: 0, proximity: 0, cdSteam: 0, cdSaw: 0, cdNormal: 0   
         };
 
         const keys = {};
@@ -105,7 +110,16 @@
 
         const projectiles = [];
 
-        // --- 5. 메인 루프 (애니메이션 로직) ---
+        // 데미지 및 붉은 화면 연출 함수
+        function takeDamage(amount) {
+            playerHp -= amount;
+            document.getElementById('player-hp').innerText = Math.max(0, playerHp);
+            const flash = document.getElementById('damage-flash');
+            flash.style.opacity = '0.4'; // 붉게 번쩍임
+            setTimeout(() => { flash.style.opacity = '0'; }, 100);
+        }
+
+        // --- 5. 메인 루프 ---
         function animate() {
             requestAnimationFrame(animate);
 
@@ -113,44 +127,40 @@
             const move = new THREE.Vector3();
             if(keys['KeyW']) move.z -= 1; if(keys['KeyS']) move.z += 1;
             if(keys['KeyA']) move.x -= 1; if(keys['KeyD']) move.x += 1;
-            if(move.length() > 0) player.position.addScaledVector(move.normalize(), P_SPEED);
+            if(move.length() > 0 && playerHp > 0) player.position.addScaledVector(move.normalize(), P_SPEED);
             
+            // [카메라 추적 및 화면 진동 연출]
             camera.position.copy(player.position).add(camOffset);
+            if (cameraShake > 0) {
+                camera.position.x += (Math.random() - 0.5) * 0.8; // 좌우 흔들림
+                camera.position.z += (Math.random() - 0.5) * 0.8; // 앞뒤 흔들림
+                cameraShake--;
+            }
             camera.lookAt(player.position);
+
+            if(playerHp <= 0) return; // 죽으면 정지
 
             const dist = bossSprite.position.distanceTo(player.position);
             const statusUI = document.getElementById('status-msg');
 
-            // [수정됨] 게이지 계산을 상태와 독립적으로 실행 (항상 작동)
-            if (dist <= 4) {
-                boss.proximity = Math.min(boss.proximity + 1, 180); // 최대 3초(180프레임)까지 멈추지 않고 증가
-            } else {
-                boss.proximity = Math.max(0, boss.proximity - 1);
-            }
+            // 게이지 계산
+            if (dist <= 4) boss.proximity = Math.min(boss.proximity + 1, 180); 
+            else boss.proximity = Math.max(0, boss.proximity - 1);
 
-            // 쿨타임 감소
             if(boss.cdSteam > 0) boss.cdSteam--;
             if(boss.cdSaw > 0) boss.cdSaw--;
             if(boss.cdNormal > 0) boss.cdNormal--;
 
             // [상태 머신]
-            
-            // [수정됨] 최우선 트리거: 대기 중이거나 일반 공격 중일 때 게이지가 다 차면 즉시 증기 폭발 시전
             if ((boss.state === 'IDLE' || boss.state === 'NORMAL') && boss.proximity >= 180 && boss.cdSteam <= 0) {
-                boss.state = 'STEAM'; 
-                boss.timer = 0; 
-                boss.proximity = 0; 
-                boss.cdSteam = 300;
+                boss.state = 'STEAM'; boss.timer = 0; boss.proximity = 0; boss.cdSteam = 300;
             }
-            
             else if(boss.state === 'IDLE') {
                 bossSprite.material.map = texIdle;
                 statusUI.innerText = "IDLE (대기/이동)";
 
                 if (dist <= 4) {
-                    if (boss.cdNormal <= 0) { 
-                        boss.state = 'NORMAL'; boss.timer = 0;
-                    }
+                    if (boss.cdNormal <= 0) { boss.state = 'NORMAL'; boss.timer = 0; }
                 } else {
                     const dir = new THREE.Vector3().subVectors(player.position, bossSprite.position).normalize();
                     dir.y = 0; 
@@ -171,9 +181,10 @@
                     bossSprite.material.map = texAtk1;
                 } else if (boss.timer < 90) {
                     bossSprite.material.map = texAtk2;
+                    // 타격 판정 (60프레임: 무기를 내리치는 순간)
+                    if(boss.timer === 60 && dist < 4.5) takeDamage(15);
                 } else {
-                    boss.state = 'IDLE'; 
-                    boss.cdNormal = 60; 
+                    boss.state = 'IDLE'; boss.cdNormal = 60; 
                 }
             } 
             
@@ -183,18 +194,29 @@
                 if (boss.timer < 30) bossSprite.material.map = texIdle;
                 else if (boss.timer < 60) bossSprite.material.map = texSteam1;
                 else if (boss.timer < 90) bossSprite.material.map = texSteam2;
-                else if (boss.timer < 120) bossSprite.material.map = texSteam3;
+                else if (boss.timer < 120) {
+                    bossSprite.material.map = texSteam3;
+                    // 폭발 판정 및 화면 진동 (90프레임: 폭발이 터지는 순간)
+                    if(boss.timer === 90) {
+                        cameraShake = 20; // 20프레임 동안 화면 흔들림
+                        if(dist < 7) { // 폭발 범위
+                            takeDamage(20);
+                            // 플레이어 넉백(밀려남)
+                            const kb = new THREE.Vector3().subVectors(player.position, bossSprite.position).normalize();
+                            kb.y = 0;
+                            player.position.addScaledVector(kb, 4); 
+                        }
+                    }
+                }
                 else boss.state = 'IDLE';
             } 
             
             else if (boss.state === 'SAW') {
                 boss.timer++;
                 statusUI.innerText = "톱날 사격!";
-                if (boss.timer < 30) {
-                    bossSprite.material.map = texIdle;
-                } else if (boss.timer < 60) {
-                    bossSprite.material.map = texAtk1; 
-                } else if (boss.timer < 90) {
+                if (boss.timer < 30) bossSprite.material.map = texIdle;
+                else if (boss.timer < 60) bossSprite.material.map = texAtk1; 
+                else if (boss.timer < 90) {
                     bossSprite.material.map = texSaw;  
                     if (boss.timer === 60) {
                         const projSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texProj }));
@@ -211,10 +233,17 @@
                 }
             }
 
-            // [투사체 업데이트]
+            // [투사체 업데이트 및 피격 판정]
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.addScaledVector(p.dir, 0.4);
+                
+                // 투사체에 맞았을 때
+                if (p.mesh.position.distanceTo(player.position) < 1.5) {
+                    takeDamage(15);
+                    p.life = 0; // 맞으면 투사체 소멸
+                }
+
                 if (p.life-- <= 0) {
                     scene.remove(p.mesh);
                     projectiles.splice(i, 1);
