@@ -86,15 +86,17 @@
             const canvas = document.createElement('canvas');
             canvas.width = 256; canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = color; ctx.fillRect(0,0,256,256);
-            ctx.fillStyle = '#fff'; ctx.font = '40px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, 128, 140);
+    
+            // 색과 글자를 칠하는 코드를 지우고, 그냥 투명하게 둡니다.
+            ctx.clearRect(0, 0, 256, 256); 
+    
             const tex = new THREE.CanvasTexture(canvas);
-            
+    
             loader.load(filename, (loaded) => {
                 tex.image = loaded.image;
-                tex.colorSpace = THREE.SRGBColorSpace; // 화질 개선
-                tex.minFilter = THREE.NearestFilter;   // 화질 개선: 도트/경계선 뚜렷하게
-                tex.magFilter = THREE.NearestFilter;   // 화질 개선
+                tex.colorSpace = THREE.SRGBColorSpace; 
+                tex.minFilter = THREE.NearestFilter;   
+                tex.magFilter = THREE.NearestFilter;   
                 tex.needsUpdate = true;
             });
             return tex;
