@@ -33,6 +33,23 @@
         .c-normal { color: #ff7043; font-weight: bold; }
         .c-steam { color: #ffa726; font-weight: bold; }
         .c-saw { color: #ffee58; font-weight: bold; }
+        
+        /* 우측 상단 조작 가이드 UI (신규) */
+        #control-guide {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(15, 10, 8, 0.85);
+            color: #e0e0e0; padding: 15px 20px;
+            border: 2px solid #8d6e63; border-radius: 8px;
+            font-size: 14px; line-height: 1.6; z-index: 10;
+            pointer-events: none; box-shadow: -2px 2px 10px rgba(0,0,0,0.5);
+            text-align: right;
+        }
+        #control-guide h3 { margin: 0 0 10px 0; color: #4fc3f7; font-size: 18px; border-bottom: 1px solid #555; padding-bottom: 5px; }
+        .key-btn {
+            display: inline-block; background: #333; color: #fff;
+            padding: 2px 8px; border-radius: 4px; border: 1px solid #777;
+            font-weight: bold; margin: 0 2px;
+        }
     </style>
 </head>
 <body>
@@ -45,6 +62,14 @@
             <li><span class="c-steam">증기 폭발</span>: 근접 거리에 <b>3초 이상 머무르면</b><br>강제 넉백 폭발을 일으킵니다.</li>
             <li><span class="c-saw">톱날 사격</span>: 플레이어가 <b>일정 거리 이상 멀어지면</b><br>고속 톱날을 발사합니다.</li>
         </ul>
+    </div>
+
+    <div id="control-guide">
+        <h3>조작 및 목표</h3>
+        <p><span class="key-btn">W</span> <span class="key-btn">A</span> <span class="key-btn">S</span> <span class="key-btn">D</span> 로 이동</p>
+        <p style="color: #bbb; font-size: 13px; margin-top: 10px;">
+            wasd로 플레이어 캐릭터를 움직여 바렛의 스킬을 피할 수 있습니다.
+        </p>
     </div>
 
     <div id="ui">
